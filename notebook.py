@@ -9,7 +9,6 @@ from CSE142L.cli import cse142L_run
 from IPython.display import Image, IFrame
 
 os.environ['CSE142L_LAB'] = 'compiler'
-#os.environ['DJR_SERVER'] = 'http://prerelease-dot-cse142l-dev.wl.r.appspot.com/'
 
 columns=["IC", "CPI", "CT", "ET", "cmdlineMHz", "realMHz"] # This is the subset of the data we will pay attention to.
 
@@ -213,11 +212,43 @@ def show_png(file):
 def login(username):
     global user
     user = username
-    return  IFrame(f"https://cse142l-dev.wl.r.appspot.com/user/web-login?email={username}", width=500, height=400)
+    return  IFrame(f"{os.environ['DJR_SERVER']}/user/web-login?email={username}", width=800, height=600)
 
 def token(token):
     cmd = f"cse142 login {user} --token {token}"
-    print(subprocess.check_output(cmd, shell=True).decode())
+    try:
+        print(subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).decode())
+    except subprocess.CalledProcessError as e:
+        print(f"""Authentication failed.  Try the following:
+  1.  Click "Sign in" again to get a new token.
+  2.  Make sure you are using your "@ucsd.edu" email address.
+  3.  Make sure you are completely replacing the old token in the command above.
+
+Here's the output of the authentication command:
+
+--BEGIN OUTPUT--
+{e.output.decode()}
+--END OUTPUT--
+
+If you get something like this:
+
+File "/opt/conda/lib/python3.7/site-packages/pkg_resources/__init__.py", line 792, in resolve
+    raise VersionConflict(dist, req).with_context(dependent_req)
+pkg_resources.ContextualVersionConflict: (grpcio 1.32.0 (/home/oweng/.local/lib/python3.7/site-packages), Requirement.parse('grpcio<2.0dev,>=1.38.1'), 'google-cloud-pubsub')
+
+that mentions a "ContextualVersionConflict" and includes a path in your home direcotry (e.g., "/home/oweng/.local..."), then you have some python libraries installed in your home directory (probably from an earlier course).  You can fix this with:
+
+mv ~/.local ~/.local-old
+
+Then, you will need to shutdown your datahub server and restart it.
+
+If the output shows evidence of a different uncaught exception, contact the course staff.
+
+""")
+
+#def token(token):
+#    cmd = f"cse142 login {user} --token {token}"
+#    print(subprocess.check_output(cmd, shell=True).decode())
     
 def plot1(file=None, df=None, field="per_element"):
     if df is None:
@@ -247,11 +278,14 @@ from IPython.display import display, Markdown, Latex, Code, HTML
 import re
 
 def my_render(c):
-    r = c._repr_html_()
-    if r != None:
-        return r
-    else:
-        return f'<img src="data:image/png;base64,{c._repr_png_()}">'
+    try:
+        return c._repr_html_()
+    except:
+        try:
+            return c._repr_svg_()
+        except:
+            return f'<img src="data:image/png;base64,{c._repr_png_()}">'
+
 compare_style = """
             <style>
         .side-by-side {
